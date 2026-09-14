@@ -70,6 +70,38 @@ GRID: tuple[tuple[str, float, float, float, float, int, tuple[str, ...]], ...] =
     )),
 )
 
+# ── 収録スコープ SSOT（AGENTS.md「収録スコープ」が正） ──
+# カスタム絵文字収録用グリフは次の 7 カテゴリに分類できる字だけを収録する。
+# 1 平仮名 / 2 片仮名 は Unicode ブロックで判定し、3〜7 は下の字種表で判定する。
+# 字を足すときは GRID の行文字列と同時にこの表を更新する（表に無い字は収録しない）。
+SCOPE_SYMBOL = "「」『』【】〈〉《》〔〕、。・〜々"                      # 3. 記号（和文括弧・約物）
+SCOPE_KANJI: dict[str, str] = {
+    "numeral": "〇一二三四五六七八九十百千万億兆"                      # 4. 漢数字（通用）
+               "零壱弐弍参肆伍陸漆捌玖拾佰仟萬爾",                      #    同（大字・異体）
+    "calendar": "日月火水木金土年全祝春夏秋冬閏",                       # 5. カレンダー用漢字
+    "sexagenary": "子丑寅卯辰巳午未申酉戌亥甲乙丙丁戊己庚辛壬癸",       # 6. 干支（十二支・十干）
+    "direction": "東西南北天地中央",                                   # 7. 方角
+}
+
+
+def scope_of(char: str) -> str | None:
+    """収録スコープのカテゴリ名を返す。7 カテゴリのどれでもなければ None。"""
+    cp = ord(char)
+    if 0x3041 <= cp <= 0x309F:
+        return "hiragana"
+    if 0x30A0 <= cp <= 0x30FF or 0xFF66 <= cp <= 0xFF9F:
+        return "katakana"
+    if char in SCOPE_SYMBOL:
+        return "symbol"
+    return next((name for name, chars in SCOPE_KANJI.items() if char in chars), None)
+
+
+_OUT_OF_SCOPE = sorted({c for _n, *_r, rows in GRID for row in rows for c in row
+                        if scope_of(c) is None})
+if _OUT_OF_SCOPE:
+    raise SystemExit(f"GRID に収録スコープ外の字があります: {''.join(_OUT_OF_SCOPE)}"
+                     "（AGENTS.md「収録スコープ」の 7 カテゴリに限定）")
+
 
 def _path_d(items: list, close: bool) -> str:
     """PyMuPDF の描画アイテム列を mm 単位の SVG パス文字列にする。"""

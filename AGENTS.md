@@ -16,6 +16,17 @@ PenchantManufacture-CJK リポジトリ固有指示の **唯一の正（SSOT）*
 
 **著作権者**: RadianN_kswg / ラジアン（柏木主税）
 **ライセンス**: **CC BY 4.0**（本家と同一。由来を問わず一律。[LICENSE] が正）
+**リポジトリ名**: GitHub `radiann-kswg/PenchantManufacture_ImageAssets-CJK`
+（2026-09-14 に `PenchantManufacture-CJK` から改称。本家 `PenchantManufacture_ImageAssets` と系列名を揃えた）
+
+- **ローカルの作業フォルダ名は `PenchantManufacture-CJK` のまま**にする
+  （Windows `C:\Visual Studio Code UserFile\ImageAssets\PenchantManufacture-CJK\`、
+  macOS `~/VSCodeUserFiles/ImageAssets/PenchantManufacture-CJK/`）。
+  `scripts/fusion/` に残る絶対パスもこのフォルダ名を前提にしている。
+- **製品名としての `PenchantManufacture-CJK` は改称しない**。README の見出し・LICENSE の表題・
+  SVG の `<title>`・プレビューの表記は従来どおり（フォント名 `PenchantManufacture CJK Mono` も不変）。
+- clone 済みのコンピュータでは `git remote set-url origin` を新 URL に更新する
+  （GitHub 側のリダイレクトは残るが、明示的に付け替える）。
 
 - **非公開・試験運用**: 公開品質に達するまで GitHub 上は private で運用する。
   クレジットの保持義務は公開/非公開に関わらず本家と同一。
@@ -139,6 +150,31 @@ PenchantManufacture-CJK/
 
 ---
 
+## 収録スコープ（2026-09-14 確定）
+
+カスタム絵文字収録用のグリフは、**次の 7 カテゴリのいずれかに分類できる字だけ**を収録する。
+どれにも当てはまらない字は、原本 `.ai` に描いても `GRID` の行文字列には足さない。
+
+| # | カテゴリ | 判定 | 収録する字 |
+| --- | --- | --- | --- |
+| 1 | 平仮名 | Unicode U+3041–U+309F | 五十音・濁点／半濁点・小書き・`ゝゞ` など |
+| 2 | 片仮名 | U+30A0–U+30FF ／ 半角 U+FF66–U+FF9F | 同上（半角カタカナを含む） |
+| 3 | 記号 | `SCOPE_SYMBOL` | 和文括弧・約物 `「」『』【】〈〉《》〔〕、。・〜々`（[docs/GLYPH_EXTENSION_PLAN.md] が計画の正） |
+| 4 | 漢数字 | `SCOPE_KANJI["numeral"]` | `〇一二三四五六七八九十百千万億兆` ＋ 大字・異体 `零壱弐弍参肆伍陸漆捌玖拾佰仟萬爾` |
+| 5 | カレンダー用漢字 | `SCOPE_KANJI["calendar"]` | `日月火水木金土年全祝春夏秋冬閏` |
+| 6 | 干支 | `SCOPE_KANJI["sexagenary"]` | 十二支 `子丑寅卯辰巳午未申酉戌亥` ＋ 十干 `甲乙丙丁戊己庚辛壬癸` |
+| 7 | 方角 | `SCOPE_KANJI["direction"]` | `東西南北天地中央` |
+
+- **実装側の正は `scripts/extract_ai_glyphs.py` の `SCOPE_SYMBOL` / `SCOPE_KANJI` と `scope_of()`**。
+  1・2 は Unicode ブロックで判定するので字種表を持たない。3〜7 は字種表が収録可否そのもの。
+- `GRID` の行文字列に表外の字があると **import 時に `SystemExit` で落ちる**（`_OUT_OF_SCOPE` の検査）。
+  字を足すときは行文字列と字種表を同じコミットで更新する。
+- `ー`(U+30FC) は片仮名ブロックなのでカテゴリ 2 として扱う（記号表には入れない）。
+- 現行の収録字（かな・カタカナ・半角カタカナ・`日月火水木金土全年`）は 1・2・5 に収まる。
+- 欧文 409 字は本家由来の別系統（等幅枠へ再配置して同梱するだけ）なので、このスコープの対象外。
+
+---
+
 ## CJK グリフの制作フロー
 
 CJK グリフの正は **Illustrator 原本 `_original-fonts/.develop/f-skt penchant-manufactuer-cjk_v4.alpha1.ai`
@@ -189,6 +225,7 @@ py -3.14 scripts/build_cjk.py        # macOS: venv の python（例: ../.venv/bi
 - 各パスは左上座標から `floor((座標 − 原点 + 1.5mm) / ピッチ)` でセルへ割り当てる
   （手置きのズレ ±1mm を吸収、インク幅 ≤ 12mm が前提）。行文字列のインデックスが列。
 - 字を足すときは **行文字列を伸ばすか行を追加**する。や行・小書き・濁点は追加時にブロック調整。
+  足せるのは「収録スコープ」の 7 カテゴリに分類できる字だけ（表外の字は import 時に落ちる）。
 - 行文字列に無い列にパスがあると WARN、グリッド外のパスは無視して件数を報告する。
 - 旧経路（Fusion `.f3d` → `extract_dice_dxf.py` → DXF）は代替として温存し、ビルドには乗せない。
 
@@ -217,6 +254,9 @@ py -3.14 scripts/build_cjk.py        # macOS: venv の python（例: ../.venv/bi
 - `src/glyphs/` `dist/` への直接ファイル配置（`scripts/build_cjk.py` / `build_font.py` 経由のみ）
 - 等幅枠（496u / 992u）・win 帯・`GRID` の原点／ピッチを断りなく変えること（登録済み絵文字の再アップロードを招く）
 - フォント名（family / PS 名）・`unitsPerEm`・縦メトリクスを断りなく変えること（インストール済みフォントの差し替えを招く）
+- 「収録スコープ」の 7 カテゴリ外の字を `GRID` の行文字列へ足すこと
+  （足したい字があるときは、まず 7 カテゴリの字種表を断って更新する）
+- リポジトリ名の変更に合わせてローカルの作業フォルダ名や製品名を改称すること
 - 第三者フォント・商用グリフのグリフパス流用
 - ライセンス表記（CC BY 4.0 / 著作者名）の削除・改ざん
 - 本家（CC BY 4.0）と異なるライセンスを CJK 拡張部分へ付与すること

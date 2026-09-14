@@ -14,6 +14,8 @@
 > **著作権者**: RadianN_kswg / ラジアン（柏木主税）
 > **ライセンス**: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.ja)（本家と同一・由来を問わず一律）
 > **状態**: alpha（試験運用）。収録字は五十音の一部で、公開品質に達するまで非公開で運用しています。
+> **リポジトリ**: `radiann-kswg/PenchantManufacture_ImageAssets-CJK`（2026-09-14 に
+> `PenchantManufacture-CJK` から改称。**製品名・フォント名・ローカルの作業フォルダ名は従来どおり**）
 
 ### 等幅フォント（OTF）
 
@@ -48,6 +50,24 @@ CJK グリフは Illustrator 原本（`_original-fonts/.develop/f-skt penchant-m
 
 濁点・半濁点・や行・小書き（ぁ ゃ など）・和文括弧／約物は未収録です
 （計画は [docs/GLYPH_EXTENSION_PLAN.md](docs/GLYPH_EXTENSION_PLAN.md)）。
+
+### 収録スコープ（7 カテゴリ）
+
+カスタム絵文字用のグリフは、次の 7 カテゴリのいずれかに分類できる字だけを収録します
+（[AGENTS.md](AGENTS.md)「収録スコープ」が正。実装は `scripts/extract_ai_glyphs.py` の
+`SCOPE_SYMBOL` / `SCOPE_KANJI` / `scope_of()`）。
+
+| # | カテゴリ | 収録する字 |
+| --- | --- | --- |
+| 1 | 平仮名 | U+3041–U+309F（五十音・濁点／半濁点・小書きなど） |
+| 2 | 片仮名 | U+30A0–U+30FF ／ 半角 U+FF66–U+FF9F |
+| 3 | 記号 | 和文括弧・約物 `「」『』【】〈〉《》〔〕、。・〜々` |
+| 4 | 漢数字 | `〇一二三四五六七八九十百千万億兆` ＋ 大字・異体 `零壱弐弍参肆伍陸漆捌玖拾佰仟萬爾` |
+| 5 | カレンダー用漢字 | `日月火水木金土年全祝春夏秋冬閏` |
+| 6 | 干支 | `子丑寅卯辰巳午未申酉戌亥` ＋ `甲乙丙丁戊己庚辛壬癸` |
+| 7 | 方角 | `東西南北天地中央` |
+
+欧文 409 字は本家由来の別系統のため、このスコープの対象外です。
 
 ### 等幅メトリクス契約
 
