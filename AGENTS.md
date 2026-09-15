@@ -9,27 +9,27 @@ PenchantManufacture-CJK リポジトリ固有指示の **唯一の正（SSOT）*
 ## プロジェクト概要
 
 **PenchantManufacture フォント収録グリフ／図柄アセットの CJK 対応（かな等）を
-試験的に制作する非公開リポジトリ** です。
+制作する公開リポジトリ** です。収録字・仕様とも alpha 段階で、今後変わりえます。
 オリジナルリポジトリ（PenchantManufacture_ImageAssets）はサブモジュール
 `.EN-original/` として取得し、設計思想・命名規則・ビルドフロー・技術方針は
 **`.EN-original/AGENTS.md` に準拠** します。本ファイルには CJK 固有の差分のみを記載します。
 
 **著作権者**: RadianN_kswg / ラジアン（柏木主税）
-**ライセンス**: **CC BY 4.0**（本家と同一。由来を問わず一律。[LICENSE] が正）
+**ライセンス**: **CC BY 4.0**（本家と同一。由来を問わず一律。[LICENSE](LICENSE) が正）
 **リポジトリ名**: GitHub `radiann-kswg/PenchantManufacture_ImageAssets-CJK`
 （2026-09-14 に `PenchantManufacture-CJK` から改称。本家 `PenchantManufacture_ImageAssets` と系列名を揃えた）
 
 - **ローカルの作業フォルダ名は `PenchantManufacture-CJK` のまま**にする
-  （Windows `C:\Visual Studio Code UserFile\ImageAssets\PenchantManufacture-CJK\`、
-  macOS `~/VSCodeUserFiles/ImageAssets/PenchantManufacture-CJK/`）。
-  `scripts/fusion/` に残る絶対パスもこのフォルダ名を前提にしている。
+  （`scripts/fusion/` に残る絶対パスがこのフォルダ名を前提にしているため）。
 - **製品名としての `PenchantManufacture-CJK` は改称しない**。README の見出し・LICENSE の表題・
   SVG の `<title>`・プレビューの表記は従来どおり（フォント名 `PenchantManufacture CJK Mono` も不変）。
 - clone 済みのコンピュータでは `git remote set-url origin` を新 URL に更新する
   （GitHub 側のリダイレクトは残るが、明示的に付け替える）。
 
-- **非公開・試験運用**: 公開品質に達するまで GitHub 上は private で運用する。
-  クレジットの保持義務は公開/非公開に関わらず本家と同一。
+- **公開・alpha 運用（2026-09-14 に public 化）**: GitHub 上は public。README・AGENTS.md・
+  `docs/` は**第三者が読む公開資料**として書く（社内メモ的な書き方・未整理のメモを残さない）。
+  収録字や仕様が変わりうる段階であることは README の「状態」で明示する。
+  クレジットの保持義務は本家と同一。
 
 ---
 
@@ -159,11 +159,11 @@ PenchantManufacture-CJK/
 | --- | --- | --- | --- |
 | 1 | 平仮名 | Unicode U+3041–U+309F | 五十音・濁点／半濁点・小書き・`ゝゞ` など |
 | 2 | 片仮名 | U+30A0–U+30FF ／ 半角 U+FF66–U+FF9F | 同上（半角カタカナを含む） |
-| 3 | 記号 | `SCOPE_SYMBOL` | 和文括弧・約物 `「」『』【】〈〉《》〔〕、。・〜々`（[docs/GLYPH_EXTENSION_PLAN.md] が計画の正） |
+| 3 | 記号 | `SCOPE_SYMBOL` | 和文括弧・約物 `「」『』【】〈〉《》〔〕、。・〜々`（[docs/GLYPH_EXTENSION_PLAN.md](docs/GLYPH_EXTENSION_PLAN.md) が計画の正） |
 | 4 | 漢数字 | `SCOPE_KANJI["numeral"]` | `〇一二三四五六七八九十百千万億兆` ＋ 大字・異体 `零壱弐弍参肆伍陸漆捌玖拾佰仟萬爾` |
 | 5 | カレンダー用漢字 | `SCOPE_KANJI["calendar"]` | `日月火水木金土年全祝春夏秋冬閏` |
 | 6 | 干支 | `SCOPE_KANJI["sexagenary"]` | 十二支 `子丑寅卯辰巳午未申酉戌亥` ＋ 十干 `甲乙丙丁戊己庚辛壬癸` |
-| 7 | 方角 | `SCOPE_KANJI["direction"]` | `東西南北天地中央` |
+| 7 | 方角 | `SCOPE_KANJI["direction"]` | `東西南北天地中` |
 
 - **実装側の正は `scripts/extract_ai_glyphs.py` の `SCOPE_SYMBOL` / `SCOPE_KANJI` と `scope_of()`**。
   1・2 は Unicode ブロックで判定するので字種表を持たない。3〜7 は字種表が収録可否そのもの。
@@ -172,6 +172,8 @@ PenchantManufacture-CJK/
 - `ー`(U+30FC) は片仮名ブロックなのでカテゴリ 2 として扱う（記号表には入れない）。
 - 現行の収録字（かな・カタカナ・半角カタカナ・`日月火水木金土全年`）は 1・2・5 に収まる。
 - 欧文 409 字は本家由来の別系統（等幅枠へ再配置して同梱するだけ）なので、このスコープの対象外。
+- 8 個目以降のカテゴリ（麻雀牌・将棋駒・元号など）の候補は
+  [docs/GLYPH_EXTENSION_PLAN.md](docs/GLYPH_EXTENSION_PLAN.md) §4-3 に**未確定案**として並べてある。採用は都度決める。
 
 ---
 
