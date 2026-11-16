@@ -25,6 +25,17 @@
 CJK 73 字、`space`（半角）・U+3000（全角）を収録し、ターミナルでは半角 2 文字＝全角 1 文字に揃います。
 ローマ数字 Ⅲ〜ⅻ は全角なので、ターミナルの **East Asian Ambiguous width を「wide」** に設定して使います。
 
+数字 `0` `⁰` `₀` には、斜線が縁から浮いた **numeral 形**の別字形も収録しています（v0.2.0）。
+OpenType の文体セット **`ss01`** を有効にすると 3 字とも切り換わります（既定は従来の字形のまま）。
+
+| 環境 | `ss01` の有効化 |
+| --- | --- |
+| CSS | `font-feature-settings: "ss01";` |
+| VS Code | `"editor.fontLigatures": "'ss01'"` |
+| Windows Terminal | プロファイルの `"font": { "features": { "ss01": 1 } }` |
+| WezTerm | `harfbuzz_features = { 'ss01' }` |
+| Illustrator ほか | OpenType パネルの「スタイルセット 1」 |
+
 ### 収録グリフ一覧（工業デカール）
 
 かな・カタカナ・半角カタカナ・漢字を、本家と同じ 5 種の工業デカール
@@ -48,6 +59,7 @@ CJK グリフは Illustrator 原本（`_original-fonts/.develop/f-skt penchant-m
 | 半角カタカナ     | ｱ ｲ ｳ ｴ ｵ ｹ ｺ ｻ ｼ ﾀ ﾁ ﾂ ﾃ ﾄ ﾅ ﾆ ﾊ ﾍ ﾎ ﾏ ﾘ ﾛ ﾝ（U+FF71〜）          | 23   | 半角 |
 | 漢字             | 日 月 火 水 木 金 土（曜日）／ 全 年                                | 9    | 全角 |
 | 欧文（本家由来） | ASCII・ラテン拡張・ギリシャ・キリル・数学記号・ローマ数字ほか        | 409  | 半角（ローマ数字 Ⅲ〜ⅻ の 16 字のみ全角） |
+| 別字形（本家由来） | 数字 `0` `⁰` `₀` の numeral 形（等幅 OTF では `ss01` で切り換え）   | 3    | 半角 |
 
 濁点・半濁点・や行・小書き（ぁ ゃ など）・和文括弧／約物は未収録です
 （計画は [docs/GLYPH_EXTENSION_PLAN.md](docs/GLYPH_EXTENSION_PLAN.md)）。
@@ -94,7 +106,7 @@ CJK グリフは Illustrator 原本（`_original-fonts/.develop/f-skt penchant-m
 PenchantManufacture-CJK/
 ├── .EN-original/                     # 【サブモジュール】本家 PenchantManufacture_ImageAssets（読み取り専用）
 ├── src/
-│   └── glyphs/                       # 等幅グリフ SVG（欧文 409 ＋ CJK 73、512 正方・配置フレーム付き）
+│   └── glyphs/                       # 等幅グリフ SVG（欧文 409 ＋ 別字形 3 ＋ CJK 73、512 正方・配置フレーム付き）
 ├── dist/
 │   ├── fonts/                        # 等幅 OTF: PenchantManufactureCJKMono-Regular.otf（build_font.py が生成）
 │   ├── glyphs_decal/{variant}/       # CJK 工業デカール 幅可変PNG（Misskey向け・マスター）
@@ -194,7 +206,7 @@ Misskey 一括インポート zip・文字列コンバーター（aiscript）の
 
 | 項目                | 仕様                                                          |
 | ------------------- | ------------------------------------------------------------- |
-| 等幅 OTF            | OpenType/CFF、unitsPerEm 1000、advance 496u / 992u、hhea・typo 660/−400、win 793/198、`post.isFixedPitch=1`、PANOSE proportion=monospaced、kern なし |
+| 等幅 OTF            | OpenType/CFF、unitsPerEm 1000、advance 496u / 992u、hhea・typo 660/−400、win 793/198、`post.isFixedPitch=1`、PANOSE proportion=monospaced、kern なし、GSUB は `ss01`（数字 0 の numeral 形）のみ |
 | グリフ SVG          | viewBox `0 0 512 512`、`<!-- frame x=.. y=.. -->` に等幅枠を埋め込み |
 | CJK SVG の塗り      | `fill-rule="evenodd"`（原本の周り方に依存せず穴を再現）        |
 | デカール（Misskey） | 高さ 512 / 128 px・**幅可変**（半角 ≈ 1:2、全角 ≈ 1:1）        |
@@ -203,7 +215,8 @@ Misskey 一括インポート zip・文字列コンバーター（aiscript）の
 
 ファイル命名: かな・カタカナ・漢字は AGL 名を持たないため `char_uniXXXX_XXXX.svg`
 （例: `char_uni3044_3044.svg` = い、`char_uniFF71_FF71.svg` = ｱ）。欧文は本家と同じ
-`char_{AGL名}_{コードポイント}.svg`。
+`char_{AGL名}_{コードポイント}.svg`。別字形は `char_{AGL名}_{バリアント名}_{コードポイント}.svg`
+（例: `char_zero_numeral_0030.svg`）。
 
 ---
 
@@ -211,7 +224,8 @@ Misskey 一括インポート zip・文字列コンバーター（aiscript）の
 
 1. **フェーズ1（完了・alpha）** — 等幅グリフ SVG と CJK 工業デカール PNG の生成環境
 2. **フェーズ2（完了・v0.1.0）** — 等幅 OTF の生成環境（`scripts/build_font.py`）。
-   経緯と設計判断: [docs/HANDOFF_PHASE2.md](docs/HANDOFF_PHASE2.md)
+   経緯と設計判断: [docs/HANDOFF_PHASE2.md](docs/HANDOFF_PHASE2.md)。
+   v0.2.0（2026-11-16）で数字 `0` `⁰` `₀` の numeral 形を `ss01` として追加
 3. 収録字の拡充（濁点・半濁点・や行・小書き・和文括弧／約物）、Misskey zip・aiscript 対応表
 
 ---

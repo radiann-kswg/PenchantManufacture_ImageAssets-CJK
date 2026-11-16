@@ -17,6 +17,23 @@
 | 目視 | Pillow で描画し、半角 2 字＝全角 1 字・は ほ ま 日 ロ の穴・半角カナを確認（ターミナル実機は未確認） |
 | 依存 | `skia-pathops`（requirements.txt に追加。cp310-abi3 wheel で Python 3.14 でも導入可） |
 
+### 0-1. 追記: v0.2.0（2026-11-16、Windows で実装）— 数字 0 の numeral 形を `ss01` で追加
+
+| 項目 | 結果 |
+| --- | --- |
+| 背景 | 本家が数字 `0` `⁰` `₀` の別字形（numeral 形。絵文字は `n0n` `sup0n` `sub0n`）をバリアント OTF `assets/fonts/PenchantManufacture-zero-numeral.otf` で同梱した（本家 `62779c1`）。CJK 原本 `.ai` のアートボード1 も同じ字形へ更新済み（アートボード2 の CJK は不変） |
+| 実装 | `build_font.variants()` が本家 `extract_glyphs.VARIANT_FONTS` を読み、`zero.numeral` `zerosuperior.numeral` `zeroinferior.numeral` を cmap 無しで追加（枠への配置は欧文と共用の `_monospaced`）。`fontTools.feaLib` で GSUB `ss01` を付ける。`build_cjk.monospace_latin` は `variant_fonts=eg.VARIANT_FONTS` を渡して等幅 SVG 3 点（`char_zero_numeral_0030` ほか）を出す |
+| 出力 | 490 グリフ / cmap 486 / 75,840 bytes。既存 487 グリフのアウトライン・advance・cmap は v0.1.0 と一致（差は追加 3 グリフ、GSUB、name ID 256、`OS/2.usMaxContext` 0→1、版数）。デカール PNG・プレビューはバイト一致 |
+| 検証 | `build_font.verify` OK（別字形の座標一致と GSUB の中身の検査を追加）。HarfBuzz（uharfbuzz）で、`ss01` 有効時だけ 3 字が置換されること、幅合計が変わらないこと、script が `kana` の run でも `DFLT` へフォールバックして効くことを確認 |
+| 決定 | feature は `ss01`（`zero` は「スラッシュ付きゼロ」の意味が決まっており、両字形とも斜線を持つので使わない）。既定の字形は変えない。§4-3 の「ターミナルは feature を適用しない」は `hwid` の話で、`ss01` は Windows Terminal・WezTerm・VS Code が設定で適用できる（README に設定例） |
+
+罠:
+
+- 別字形のステム（`char_zero_numeral_0030`）は `_latin_stems` に入るが、cmap に無いので本家の再抽出には出てこない。`verify` は OTF のグリフから `extract_glyph_svg` で SVG 化して同じ照合に載せる。
+- `addOpenTypeFeaturesFromString` は全テーブルを組んだ後（`setupMaxp` の後、`save` の前）に呼ぶ。`featureNames` は name ID 256 を Windows platform に足す。出力は決定的（2 回ビルドでバイト一致）。
+- numeral 形は advance が本体と違う（`0` 455→456、`⁰` 243→258、`₀` 239→258）。advance 箱を枠中央へ置く規則のままなので、インクは標準形より 0.5u 右へ寄る（インク幅は同じ）。
+- `build_cjk.py` の完了行は「欧文 409 字（＋別字形 3 点）」。`docs/glyph_aliases.json` は別字形 3 点を含む（本家 extract の生成物）。
+
 ---
 
 ## 1. 現状（フェーズ1 の到達点）

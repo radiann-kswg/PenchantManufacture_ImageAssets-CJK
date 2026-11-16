@@ -74,7 +74,7 @@ PenchantManufacture-CJK/
 │   ├── penchant-manufacture_v4.0-release/PenchantManufacture.otf ← 欧文の正
 │   └── .develop/
 │       └── f-skt penchant-manufactuer-cjk_v4.alpha1.ai   ← CJK グリフの正（アートボード2）
-├── src/glyphs/              ← 等幅グリフ SVG（欧文 409 字 ＋ CJK。scripts/build_cjk.py が生成）
+├── src/glyphs/              ← 等幅グリフ SVG（欧文 409 字＋数字 `0` `⁰` `₀` の別字形 3 点 ＋ CJK。scripts/build_cjk.py が生成）
 ├── dist/
 │   ├── fonts/PenchantManufactureCJKMono-Regular.otf  ← 等幅 OTF（scripts/build_font.py が生成・検証）
 │   ├── glyphs_decal/{sumi,rust,hazard,patina,nickel,weekday}/  ← CJK デカール PNG（幅可変）
@@ -139,13 +139,14 @@ PenchantManufacture-CJK/
 | 項目 | 値 |
 | --- | --- |
 | ファイル | `dist/fonts/PenchantManufactureCJKMono-Regular.otf`（OpenType/CFF）。git 追跡 |
-| 名前 | family `PenchantManufacture CJK Mono` / style `Regular` / PS 名 `PenchantManufactureCJKMono-Regular` / version `0.1.0`（`build_font.VERSION`。字形を足したら上げる） |
-| 収録 | 本家 cmap 全部（advance 0 の `.null` `controlLF` `controlCR` は除く）＋ CJK（`src/glyphs/char_uniXXXX_XXXX.svg` 全部）＋ U+3000（992u）。`.notdef` は半角の中空矩形 |
-| 欧文 | 本家 CFF の座標を丸めずに複製し、`metrics.latin_cell` の gx だけ平行移動。GPOS kern・GSUB は持ち込まない |
+| 名前 | family `PenchantManufacture CJK Mono` / style `Regular` / PS 名 `PenchantManufactureCJKMono-Regular` / version `0.2.0`（`build_font.VERSION`。字形を足したら上げる。0.2.0 で別字形と `ss01` を追加） |
+| 収録 | 本家 cmap 全部（advance 0 の `.null` `controlLF` `controlCR` は除く）＋ CJK（`src/glyphs/char_uniXXXX_XXXX.svg` 全部）＋ U+3000（992u）。`.notdef` は半角の中空矩形。別字形 3 グリフは cmap に載せない（下の「別字形」行） |
+| 欧文 | 本家 CFF の座標を丸めずに複製し、`metrics.latin_cell` の gx だけ平行移動。GPOS kern は持ち込まない（本家に GSUB は無い） |
+| 別字形 | 数字 `0` `⁰` `₀` の **numeral 形**（斜線が縁から浮く）を `zero.numeral` `zerosuperior.numeral` `zeroinferior.numeral` として収録（cmap 無し、3 字とも半角 496u）。GSUB **`ss01`**（文体セット 1、UI 名 `Numeral zero`、script `DFLT` `latn`）で既定字から切り換える。既定（feature 無効）の字形は従来どおり。対象の表は本家 `extract_glyphs.VARIANT_FONTS` が正で、字形は `.EN-original/assets/fonts/PenchantManufacture-zero-numeral.otf` から欧文と同じ規則で複製する（`build_font.variants` / `_monospaced`）。`zero` feature は「スラッシュ付きゼロ」の意味が決まっていて、どちらの字形も斜線を持つので使わない |
 | メトリクス | hhea・typo 660/−400、win 793/198、xAvgCharWidth 496、`post.isFixedPitch=1`、PANOSE proportion=9 |
 | EAW | ローマ数字 Ⅲ〜ⅻ は全角のまま。README に ambiguous width = wide 前提と明記。他の Ambiguous 字は半角 |
 | 再現性 | `head.created/modified` を固定（`build_font.BUILD_TIME`）。字形を変えなければ再ビルドはバイト一致 → PNG と同じく字形変更時のみコミット |
-| 検証 | `build_font.verify`: advance ∈ {496, 992}／cmap の過不足／欧文を本家 `extract_glyphs` で再抽出して `src/glyphs` と座標一致／CJK は winding ラスタで SVG と一致／「にほん」「ｺﾝﾃﾅ」の幅合計。NG があれば非 0 終了 |
+| 検証 | `build_font.verify`: advance ∈ {496, 992}／cmap の過不足／欧文を本家 `extract_glyphs` で再抽出して `src/glyphs` と座標一致／別字形も同じ照合に載せ、GSUB が `ss01` の 3 置換だけであること／CJK は winding ラスタで SVG と一致／「にほん」「ｺﾝﾃﾅ」の幅合計。NG があれば非 0 終了 |
 | 未採用 | GSUB `hwid`（半角カナは cmap のみ）、TTF の常時出力（`--ttf` で任意生成）、mac 名前レコード（name は Windows platform のみ） |
 
 ---
@@ -185,9 +186,9 @@ Adobe コネクタは手動プレビュー用途に限り、ビルドには使�
 
 ```
 py -3.14 scripts/build_cjk.py        # macOS: venv の python（例: ../.venv/bin/python scripts/build_cjk.py）
-  1. latin   本家 extract_glyphs.extract_all（OTF）→ transform/frame を等幅枠へ書き換え
+  1. latin   本家 extract_glyphs.extract_all（OTF ＋ 別字形 VARIANT_FONTS）→ transform/frame を等幅枠へ書き換え
   2. cjk     extract_ai_glyphs.extract_all（.ai アートボード2）→ src/glyphs/char_uniXXXX_XXXX.svg
-  3. font    build_font.build（本家 CFF 複製 ＋ CJK SVG → skia-pathops）→ dist/fonts/*.otf → verify
+  3. font    build_font.build（本家 CFF 複製 ＋ 別字形 ＋ CJK SVG → skia-pathops、GSUB ss01）→ dist/fonts/*.otf → verify
   4. decal   本家 generate_decal.render を CJK グリフだけに適用（5 スキーム、幅可変＋正方形）
   5. weekday 日〜土 7 字を曜日配色（docs/WEEKDAY_COLORING_PLAN.md、build_cjk.WEEKDAY）で描画
   6. previews docs/previews/hero.png, glyphset.png（README 冒頭のサムネイル）
@@ -211,6 +212,7 @@ py -3.14 scripts/build_cjk.py        # macOS: venv の python（例: ../.venv/bi
   render / `_save_all_sizes` / `frame_box` を直接呼んで CJK 側の `dist/` へ書く。
 - 描画一致統合（`dedupe_renders`）は CJK では行わない（同形グリフが無い）。
 - 欧文の decal PNG は本家にあるため CJK 側では生成しない（SVG のみ等幅版を持つ）。
+  別字形 3 点も同じ（絵文字 PNG は本家の `n0n` `sup0n` `sub0n`）。
 - トークン定義・aiscript・Misskey zip は未着手（Misskey 登録段階で本家 `glyph_tokens` 方式に倣う）。
 - フェーズ2（等幅 OTF）は 2026-09-12 に完了。決定事項と罠は `docs/HANDOFF_PHASE2.md`。
   次はフェーズ3（Misskey zip・aiscript 対応表、収録字の拡充）。
@@ -234,7 +236,8 @@ py -3.14 scripts/build_cjk.py        # macOS: venv の python（例: ../.venv/bi
 ### 命名規則（本家準拠＋CJK 拡張）
 
 かな・カタカナ・漢字は AGL 名を持たないため、本家のフォールバック規則 `uniXXXX` を用いる
-（`extract_ai_glyphs.py` が生成。欧文は本家と同じ AGL 名ステム）:
+（`extract_ai_glyphs.py` が生成。欧文は本家と同じ AGL 名ステム、別字形も本家と同じ
+`char_{AGL}_{バリアント名}_{CP}`。例 `char_zero_numeral_0030`）:
 
 | 文字 | コードポイント | ステム |
 | --- | --- | --- |
@@ -255,7 +258,8 @@ py -3.14 scripts/build_cjk.py        # macOS: venv の python（例: ../.venv/bi
 - `_original-fonts/` 内ファイルの変更・削除
 - `src/glyphs/` `dist/` への直接ファイル配置（`scripts/build_cjk.py` / `build_font.py` 経由のみ）
 - 等幅枠（496u / 992u）・win 帯・`GRID` の原点／ピッチを断りなく変えること（登録済み絵文字の再アップロードを招く）
-- フォント名（family / PS 名）・`unitsPerEm`・縦メトリクスを断りなく変えること（インストール済みフォントの差し替えを招く）
+- フォント名（family / PS 名）・`unitsPerEm`・縦メトリクス・`ss01` の意味（数字 0 の numeral 形）を断りなく変えること
+  （インストール済みフォントの差し替えや、利用側の feature 設定の修正を招く）
 - 「収録スコープ」の 7 カテゴリ外の字を `GRID` の行文字列へ足すこと
   （足したい字があるときは、まず 7 カテゴリの字種表を断って更新する）
 - リポジトリ名の変更に合わせてローカルの作業フォルダ名や製品名を改称すること
