@@ -72,16 +72,19 @@ def _rgb(hex_color: str) -> tuple[int, int, int]:
 
 def monospace_latin(font_path: Path, out_dir: Path) -> list[Path]:
     """本家 extract → 各 SVG を等幅枠へ（判定はインク幅、配置は advance 中央／超過時インク中央）。"""
-    produced = eg.extract_all(font_path, out_dir, aliases_path=ALIASES, prune=False)
-    tt = ttLib.TTFont(str(font_path))
-    glyph_set = tt.getGlyphSet()
-    hmtx = tt["hmtx"].metrics
+    produced = eg.extract_all(font_path, out_dir, aliases_path=ALIASES, prune=False,
+                              variant_fonts=eg.VARIANT_FONTS)
+    home = ttLib.TTFont(str(font_path))
+    # 別字形（char_zero_numeral_0030 等）は本家のバリアント OTF の実メトリクスで枠へ置く
+    variant_font = {v.stem: v.font for v in build_font.variants()}
     scale = ai.VIEWBOX / ai.UPM
     glyphs = json.loads(ALIASES.read_text(encoding="utf-8"))["glyphs"]
 
     for svg_path in produced:
         info = glyphs[svg_path.stem]
-        adv = hmtx[info["glyph"]][0]
+        tt = variant_font.get(svg_path.stem, home)
+        glyph_set = tt.getGlyphSet()
+        adv = tt["hmtx"].metrics[info["glyph"]][0]
         pen = BoundsPen(glyph_set)
         glyph_set[info["glyph"]].draw(pen)
         ink_x0, _, ink_x1, _ = pen.bounds
@@ -145,7 +148,8 @@ def build(font_path: Path, ai_path: Path, with_decal: bool, with_font: bool = Tr
     print("\n== 6/6 previews: README 用プレビュー")
     import build_previews_cjk  # noqa: E402  dist が揃ってから import
     build_previews_cjk.build()
-    print(f"\n完了: 欧文 {len(latin)} 字 / CJK {len(cjk)} 字 / decal {n} 点")
+    n_variant = len(build_font.variants())
+    print(f"\n完了: 欧文 {len(latin) - n_variant} 字（＋別字形 {n_variant} 点）/ CJK {len(cjk)} 字 / decal {n} 点")
 
 
 def _selfcheck(cjk: list[Path]) -> None:

@@ -7,6 +7,9 @@
           （evenodd → nonzero、重なり除去）してから CFF 化する。
     追加  .notdef（半角の中空矩形）、U+3000 全角スペース（992u）。
           本家の advance 0 の制御グリフ（.null / CR / LF）は持ち込まない。
+    別字形 本家のバリアント OTF（extract_glyphs.VARIANT_FONTS）の字形を、cmap に載せない
+          グリフ（``zero.numeral`` 等）として欧文と同じ規則で複製し、GSUB の文体セット
+          ``ss01`` で既定字から切り換えられるようにする。
 
 メトリクス（unitsPerEm 1000、win 帯 793/198、hhea・typo 660/−400、capHeight 661、
 xHeight 462）は本家の値をそのまま使う（scripts/metrics.py）。GPOS kern は等幅なので
@@ -33,6 +36,7 @@ import click
 import numpy as np
 import pathops
 from fontTools import ttLib
+from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
 from fontTools.fontBuilder import FontBuilder
 from fontTools.misc.timeTools import timestampFromString
 from fontTools.pens.boundsPen import BoundsPen
@@ -58,7 +62,7 @@ OUT_DIR = ROOT / "dist" / "fonts"
 FAMILY = "PenchantManufacture CJK Mono"
 STYLE = "Regular"
 PS_NAME = "PenchantManufactureCJKMono-Regular"
-VERSION = "0.1.0"                     # .ai v4.alpha1 に対応。字形を足したら上げる
+VERSION = "0.2.0"                     # 字形を足したら上げる（0.2.0: 0 ⁰ ₀ の numeral 形を ss01 で追加）
 COPYRIGHT = "© RadianN_kswg / ラジアン（柏木主税）"
 DESIGNER = "RadianN_kswg"
 URL = "https://www.numbertales-radiann.net"
@@ -70,6 +74,10 @@ BUILD_TIME = "Sat Sep 12 00:00:00 2026"   # head.created / modified（再現性�
 
 DROP_GLYPHS = frozenset({".null", "controlLF", "controlCR"})   # advance 0 の制御グリフ
 FULLWIDTH_SPACE = 0x3000
+
+# 別字形へ切り換える OpenType 機能（文体セット 1）。対象は本家 extract_glyphs.VARIANT_FONTS が正
+VARIANT_FEATURE = "ss01"
+VARIANT_FEATURE_NAME = "Numeral zero"
 
 _TX_RE = re.compile(r'transform="matrix\(([-\d.]+),0,0,([-\d.]+),([-\d.]+),([-\d.]+)\)"')
 _FRAME_RE = re.compile(r"<!-- frame x=([-\d.]+),([-\d.]+) y=([-\d.]+),([-\d.]+) -->")
@@ -100,30 +108,56 @@ class Glyph(NamedTuple):
 
 # ── グリフの収集 ──
 
+def _monospaced(tt: ttLib.TTFont, glyph_set, name: str, out_name: str) -> Glyph:
+    """プロポーショナルな 1 グリフを等幅枠へ平行移動して複製する（規則は metrics.latin_cell）。"""
+    adv = tt["hmtx"].metrics[name][0]
+    bpen = BoundsPen(glyph_set)
+    glyph_set[name].draw(bpen)
+    if bpen.bounds is None:                           # space / nbsp / softhyphen
+        return Glyph(out_name, m.CELL_HALF, [])
+    ink_x0, _, ink_x1, _ = bpen.bounds
+    if ink_x1 - ink_x0 > m.CELL_FULL:
+        print(f"  WARN: {name} のインク幅 {ink_x1 - ink_x0:.0f}u が全角枠 {m.CELL_FULL}u を超過")
+    cell, gx = m.latin_cell(adv, ink_x0, ink_x1)
+    rec = RecordingPen()
+    glyph_set[name].draw(TransformPen(rec, (1, 0, 0, 1, gx, 0)))
+    return Glyph(out_name, cell, rec.value)
+
+
 def latin_glyphs(font_path: Path) -> tuple[list[Glyph], dict[int, str]]:
     """本家 OTF の全グリフを等幅枠へ平行移動して複製する（cmap もそのまま継承）。"""
     tt = ttLib.TTFont(str(font_path))
     glyph_set = tt.getGlyphSet()
-    hmtx = tt["hmtx"].metrics
-    glyphs: list[Glyph] = []
-    for name in tt.getGlyphOrder():
-        if name == ".notdef" or name in DROP_GLYPHS:
-            continue
-        adv = hmtx[name][0]
-        bpen = BoundsPen(glyph_set)
-        glyph_set[name].draw(bpen)
-        if bpen.bounds is None:                       # space / nbsp / softhyphen
-            glyphs.append(Glyph(name, m.CELL_HALF, []))
-            continue
-        ink_x0, _, ink_x1, _ = bpen.bounds
-        if ink_x1 - ink_x0 > m.CELL_FULL:
-            print(f"  WARN: {name} のインク幅 {ink_x1 - ink_x0:.0f}u が全角枠 {m.CELL_FULL}u を超過")
-        cell, gx = m.latin_cell(adv, ink_x0, ink_x1)
-        rec = RecordingPen()
-        glyph_set[name].draw(TransformPen(rec, (1, 0, 0, 1, gx, 0)))
-        glyphs.append(Glyph(name, cell, rec.value))
+    glyphs = [_monospaced(tt, glyph_set, name, name) for name in tt.getGlyphOrder()
+              if name != ".notdef" and name not in DROP_GLYPHS]
     cmap = {cp: g for cp, g in tt.getBestCmap().items() if g not in DROP_GLYPHS}
     return glyphs, cmap
+
+
+class Variant(NamedTuple):
+    """別字形 1 点（本家 extract_glyphs.VARIANT_FONTS の 1 行に対応）。"""
+
+    stem: str            # 等幅 SVG のステム（char_zero_numeral_0030）
+    base: str            # 既定字のグリフ名（zero）
+    name: str            # 別字形のグリフ名（zero.numeral）。cmap には載せない
+    font: ttLib.TTFont   # 字形の出どころ（本家のバリアント OTF）
+
+
+def variants() -> list[Variant]:
+    """本家が同梱する別字形の一覧（SVG 抽出と OTF 生成が同じ表を使う）。"""
+    import extract_glyphs as eg  # noqa: E402  本家
+    fonts: dict[Path, ttLib.TTFont] = {}
+    out: list[Variant] = []
+    for path, cp, vname in eg.VARIANT_FONTS:
+        tt = fonts.setdefault(path, ttLib.TTFont(str(path)))
+        base = tt.getBestCmap()[cp]
+        out.append(Variant(f"char_{eg._agl_name(cp, base)}_{vname}_{cp:04X}", base, f"{base}.{vname}", tt))
+    return out
+
+
+def variant_glyphs() -> list[Glyph]:
+    """別字形を欧文と同じ規則で等幅枠へ置く（枠幅・位置はバリアント OTF の実メトリクスから）。"""
+    return [_monospaced(v.font, v.font.getGlyphSet(), v.base, v.name) for v in variants()]
 
 
 def cjk_outline(svg_text: str) -> tuple[int, list]:
@@ -178,13 +212,13 @@ def notdef_glyph() -> Glyph:
 
 
 def collect(font_path: Path, src_dir: Path) -> tuple[list[Glyph], dict[int, str]]:
-    """グリフ順: .notdef → 本家順の欧文 → U+3000 → CJK（コードポイント順）。"""
+    """グリフ順: .notdef → 本家順の欧文 → U+3000 → CJK（コードポイント順）→ 別字形（cmap 無し）。"""
     latin, cmap = latin_glyphs(font_path)
     cjk, cjk_cmap = cjk_glyphs(src_dir)
     assert FULLWIDTH_SPACE not in cmap and not (set(cmap) & set(cjk_cmap)), "cmap が衝突"
     cmap.update(cjk_cmap)
     cmap[FULLWIDTH_SPACE] = "uni3000"
-    return [notdef_glyph(), *latin, Glyph("uni3000", m.CELL_FULL, []), *cjk], cmap
+    return [notdef_glyph(), *latin, Glyph("uni3000", m.CELL_FULL, []), *cjk, *variant_glyphs()], cmap
 
 
 # ── フォントの組み立て ──
@@ -248,6 +282,13 @@ def build(font_path: Path = FONT, src_dir: Path = SRC, out_dir: Path = OUT_DIR,
                  created=ts, modified=ts, xMin=round(xmin), yMin=round(ymin),
                  xMax=round(xmax), yMax=round(ymax))
     fb.setupMaxp()
+    # 別字形は cmap に載せず、文体セットで既定字から切り換える（等幅なので GPOS は不要）
+    subs = "\n".join(f"    sub {v.base} by {v.name};" for v in variants())
+    addOpenTypeFeaturesFromString(fb.font, (
+        "languagesystem DFLT dflt;\nlanguagesystem latn dflt;\n"
+        f"feature {VARIANT_FEATURE} {{\n"
+        f'    featureNames {{ name "{VARIANT_FEATURE_NAME}"; }};\n{subs}\n'
+        f"}} {VARIANT_FEATURE};\n"))
 
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / f"{PS_NAME}.{'ttf' if ttf else 'otf'}"
@@ -306,7 +347,8 @@ def verify(otf_path: Path, font_path: Path = FONT, src_dir: Path = SRC) -> list[
     1. 全グリフの advance ∈ {496, 992}、post.isFixedPitch
     2. cmap: 本家の全コードポイント（制御グリフ除く）＋ src の CJK ＋ U+3000
     3. 欧文: 本家 extract_glyphs で OTF から SVG を再抽出し、src/glyphs の欧文 SVG と
-       frame・アウトライン座標が一致（SVG を経由せず複製した字形の検算）
+       frame・アウトライン座標が一致（SVG を経由せず複製した字形の検算）。
+       別字形（cmap 無し）も同じ照合に載せ、GSUB ``ss01`` が既定字 → 別字形だけを持つことを確かめる
     4. CJK: 再抽出 SVG（nonzero）と src の SVG（evenodd）のラスタが一致（穴の埋まりを検出）
     5. 「にほん」「ｺﾝﾃﾅ」の幅合計が 992×3 / 496×4
     """
@@ -333,8 +375,24 @@ def verify(otf_path: Path, font_path: Path = FONT, src_dir: Path = SRC) -> list[
         with contextlib.redirect_stdout(io.StringIO()):
             produced = eg.extract_all(otf_path, tmp_dir, aliases_path=tmp_dir / "aliases.json", prune=False)
         got = {p.stem: p.read_text(encoding="utf-8") for p in produced}
+    # 別字形は cmap に無いので本家の再抽出には出てこない。OTF のグリフから同じ関数で SVG 化して比べる
+    fit, glyph_set = eg.metrics_fit(tt["OS/2"], m.UPM, m.VIEWBOX), tt.getGlyphSet()
+    subs = {k: v for lookup in (tt["GSUB"].table.LookupList.Lookup if "GSUB" in tt else ())
+            for st in lookup.SubTable for k, v in getattr(st, "mapping", {}).items()}
+    feats = {r.FeatureTag for r in tt["GSUB"].table.FeatureList.FeatureRecord} if "GSUB" in tt else set()
+    if feats != {VARIANT_FEATURE}:
+        problems.append(f"GSUB の feature が {{{VARIANT_FEATURE}}} でない: {sorted(feats)}")
+    variant_stems = set()
+    for v in variants():
+        variant_stems.add(v.stem)
+        if subs.get(v.base) != v.name or v.name not in glyph_set:
+            problems.append(f"{v.name}: {VARIANT_FEATURE} の置換 {v.base} → {v.name} が無い")
+            continue
+        got[v.stem] = eg.extract_glyph_svg(v.name, glyph_set, hmtx, fit, m.UPM, m.VIEWBOX, "")
     if _latin_stems(src_dir) != {s for s in got if cjk_codepoint(s) is None}:
         problems.append("再抽出した欧文 SVG の集合が src/glyphs と一致しない")
+    if len(subs) != len(variant_stems):
+        problems.append(f"GSUB の置換が別字形の表と一致しない: {subs}")
     for stem, mine in sorted(got.items()):
         src = src_dir / f"{stem}.svg"
         if not src.exists():
@@ -369,7 +427,7 @@ def check(otf_path: Path, font_path: Path = FONT, src_dir: Path = SRC) -> None:
         print(f"  NG: {p}")
     if problems:
         raise SystemExit(f"検証 NG {len(problems)} 件: {otf_path}")
-    print(f"  検証 OK: advance・cmap・欧文アウトライン・CJK ラスタ・幅合計 ({otf_path.name})")
+    print(f"  検証 OK: advance・cmap・欧文アウトライン・別字形（{VARIANT_FEATURE}）・CJK ラスタ・幅合計 ({otf_path.name})")
 
 
 @click.command()
